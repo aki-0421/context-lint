@@ -16,17 +16,13 @@ inputs:
     required: false
     default: ""
   root:
-    description: Project root to lint.
+    description: Project root to lint. Defaults to the workflow working directory.
     required: false
-    default: "."
+    default: ""
   format:
-    description: Output format. Supported values are human and json.
+    description: Output format. Supported values are human and json. Defaults to the CLI default.
     required: false
-    default: human
-  go-version:
-    description: Go version used to build context-lint.
-    required: false
-    default: "1.23"
+    default: ""
 
 runs:
   using: composite
@@ -34,7 +30,7 @@ runs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: ${{ inputs.go-version }}
+        go-version-file: ${{ github.action_path }}/go.mod
         cache: false
 
     - name: Build context-lint

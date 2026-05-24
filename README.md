@@ -67,18 +67,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: aki-0421/context-lint@v0.1.0
-        with:
-          strict: true
 ```
 
-The action also supports explicit configuration:
+By default, the action uses the workflow working directory as the project root, discovers `.context-lint.{yaml,yml,json,jsonc}`, uses human output, and reports document findings as warnings.
+
+Enable strict mode when the documentation graph should fail CI:
+
+```yaml
+- uses: aki-0421/context-lint@v0.1.0
+  with:
+    strict: true
+```
+
+Pass only the options you need to override:
 
 ```yaml
 - uses: aki-0421/context-lint@v0.1.0
   with:
     config: .context-lint.yaml
-    root: .
-    format: human
     strict: true
 ```
 

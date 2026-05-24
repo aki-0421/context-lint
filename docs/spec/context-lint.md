@@ -302,8 +302,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: <owner>/context-lint@v0.1.0
-        with:
-          strict: false
 ```
 
 ### Strict Mode
@@ -324,6 +322,7 @@ Warning mode is recommended for initial adoption. Teams can switch to strict mod
 - Prepare GitHub Releases for major OS binaries.
 - Provide a root `action.yml` so workflows can run `uses: <owner>/context-lint@vX.Y.Z`.
 - Build the CLI inside the composite action from the checked-out action source.
+- Keep GitHub Action inputs optional when a CLI default or automatic discovery is available.
 
 ## Implementation Direction
 
