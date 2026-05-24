@@ -23,3 +23,11 @@ jobs:
       - run: go vet ./...
       - run: go build -o /tmp/context-lint ./cmd/context-lint
       - run: go run ./cmd/context-lint --strict
+
+  action-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          strict: true

@@ -15,6 +15,7 @@ Implementation map:
 - `internal/pattern` expands required and excluded paths.
 - `internal/diagnostic` renders human and JSON diagnostics.
 - `internal/runner` wires configuration, linting, output, and exit codes together.
+- `action.yml` exposes the CLI as a composite GitHub Action.
 
 Development commands:
 

@@ -66,11 +66,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: aki-0421/context-lint@v0.1.0
         with:
-          go-version: '1.23'
-      - run: go install github.com/aki-0421/context-lint/cmd/context-lint@latest
-      - run: context-lint --strict
+          strict: true
+```
+
+The action also supports explicit configuration:
+
+```yaml
+- uses: aki-0421/context-lint@v0.1.0
+  with:
+    config: .context-lint.yaml
+    root: .
+    format: human
+    strict: true
 ```
 
 ## Release
@@ -83,6 +92,7 @@ git push origin v0.1.0
 ```
 
 The release workflow builds archives and checksums for Linux, macOS, and Windows.
+The same tag also publishes the GitHub Action entry point, so workflows can use `aki-0421/context-lint@v0.1.0`.
 
 ## Specification
 

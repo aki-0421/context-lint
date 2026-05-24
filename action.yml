@@ -1,0 +1,88 @@
+name: context-lint
+description: Lint AI-readable documentation reachability from a single Markdown entry file.
+author: aki-0421
+
+branding:
+  icon: book-open
+  color: blue
+
+inputs:
+  strict:
+    description: Treat warnings as errors.
+    required: false
+    default: "false"
+  config:
+    description: Path to a context-lint configuration file.
+    required: false
+    default: ""
+  root:
+    description: Project root to lint.
+    required: false
+    default: "."
+  format:
+    description: Output format. Supported values are human and json.
+    required: false
+    default: human
+  go-version:
+    description: Go version used to build context-lint.
+    required: false
+    default: "1.23"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache: false
+
+    - name: Build context-lint
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+
+        install_dir="${RUNNER_TEMP}/context-lint-action"
+        mkdir -p "${install_dir}"
+        go build -C "${ACTION_PATH}" -o "${install_dir}/context-lint" ./cmd/context-lint
+        echo "${install_dir}" >> "${GITHUB_PATH}"
+
+    - name: Run context-lint
+      shell: bash
+      env:
+        INPUT_STRICT: ${{ inputs.strict }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_ROOT: ${{ inputs.root }}
+        INPUT_FORMAT: ${{ inputs.format }}
+      run: |
+        set -euo pipefail
+
+        args=()
+
+        case "${INPUT_STRICT}" in
+          true)
+            args+=(--strict)
+            ;;
+          false)
+            ;;
+          *)
+            echo "::error::input 'strict' must be 'true' or 'false'"
+            exit 2
+            ;;
+        esac
+
+        if [[ -n "${INPUT_CONFIG}" ]]; then
+          args+=(--config "${INPUT_CONFIG}")
+        fi
+
+        if [[ -n "${INPUT_ROOT}" ]]; then
+          args+=(--root "${INPUT_ROOT}")
+        fi
+
+        if [[ -n "${INPUT_FORMAT}" ]]; then
+          args+=(--format "${INPUT_FORMAT}")
+        fi
+
+        context-lint "${args[@]}"

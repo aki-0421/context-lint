@@ -301,17 +301,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: <owner>/context-lint@v0.1.0
         with:
-          go-version: '1.23'
-      - run: go install github.com/<owner>/context-lint/cmd/context-lint@latest
-      - run: context-lint
+          strict: false
 ```
 
 ### Strict Mode
 
 ```yaml
-- run: context-lint --strict
+- uses: <owner>/context-lint@v0.1.0
+  with:
+    strict: true
 ```
 
 Warning mode is recommended for initial adoption. Teams can switch to strict mode after the document graph is stable.
@@ -322,14 +322,15 @@ Warning mode is recommended for initial adoption. Teams can switch to strict mod
 - Put the CLI entry point under `cmd/context-lint`.
 - Support installation with `go install github.com/<owner>/context-lint/cmd/context-lint@latest`.
 - Prepare GitHub Releases for major OS binaries.
-- Use `go install` as the primary GitHub Actions installation method at first.
-- Consider a dedicated GitHub Action later.
+- Provide a root `action.yml` so workflows can run `uses: <owner>/context-lint@vX.Y.Z`.
+- Build the CLI inside the composite action from the checked-out action source.
 
 ## Implementation Direction
 
 ### Package Layout
 
 ```text
+action.yml               Composite GitHub Action entry point
 cmd/context-lint/        CLI entry point
 internal/config/         Configuration discovery, loading, and normalization
 internal/document/       Markdown parsing, reference extraction, graph building
