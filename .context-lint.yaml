@@ -1,0 +1,9 @@
+linter:
+  document:
+    entry: AGENTS.md
+    requiredReachable:
+      - README.md
+    excludes:
+      - .git
+      # The specification contains intentionally broken path examples.
+      - docs/spec/context-lint.md
