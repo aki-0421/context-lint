@@ -27,6 +27,21 @@ docs/generated.md
 	assertHasRef(t, refs, "docs/generated.md", KindPathCode)
 }
 
+func TestExtractReferencesIgnoresGoPackagePatterns(t *testing.T) {
+	data := []byte(`Run ` + "`go test ./...`" + ` before opening a pull request.
+
+` + "```" + `bash
+go test ./...
+go test ../...
+` + "```" + `
+`)
+
+	refs := ExtractReferences("README.md", data)
+	if len(refs) != 0 {
+		t.Fatalf("refs = %#v, want no references", refs)
+	}
+}
+
 func TestBuildGraphDetectsMissingReferencesAndReachability(t *testing.T) {
 	root := t.TempDir()
 	writeDocFile(t, root, "AGENTS.md", "[Docs](docs/index.md)\n")

@@ -174,6 +174,7 @@ A non-link string is treated as a reference candidate when it matches these rule
 - It can be split at boundaries such as whitespace, quotes, parentheses, or punctuation.
 - It is not an external URL or URI-scheme reference.
 - It does not resolve outside the project root.
+- It is not a known command/package pattern that is not a file reference, such as Go's `./...`.
 
 Examples:
 

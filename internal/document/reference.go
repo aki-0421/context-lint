@@ -169,6 +169,9 @@ func ExtractReferences(sourceRel string, data []byte) []Reference {
 		if raw == "" {
 			return
 		}
+		if shouldIgnorePathLikeReference(raw, kind) {
+			return
+		}
 		keyNoKind := fmt.Sprintf("%d:%d:%s", line, column, raw)
 		if kind == KindPathText || kind == KindPathCode {
 			if seen[keyNoKind] {
@@ -379,9 +382,6 @@ func markdownFilesUnder(root string, dirRel string) ([]string, error) {
 
 func cleanRawReference(raw string) string {
 	raw = strings.TrimSpace(raw)
-	if raw == "./..." {
-		return ""
-	}
 	raw = strings.Trim(raw, "`\"'")
 	raw = strings.TrimPrefix(raw, "[")
 	raw = strings.TrimSuffix(raw, "]")
@@ -390,6 +390,18 @@ func cleanRawReference(raw string) string {
 	raw = strings.TrimRight(raw, ".,;:!?")
 	raw = strings.TrimRight(raw, ")")
 	return raw
+}
+
+func shouldIgnorePathLikeReference(raw string, kind string) bool {
+	if !isPathTextKind(kind) {
+		return false
+	}
+	switch raw {
+	case "./", "../", "/", "./...", "../...":
+		return true
+	default:
+		return strings.HasSuffix(raw, "/...")
+	}
 }
 
 func stripAnchor(raw string) string {
