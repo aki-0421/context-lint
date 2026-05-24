@@ -302,13 +302,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: <owner>/context-lint@v0.1.0
+      - uses: <owner>/context-lint@v1
 ```
 
 ### Strict Mode
 
 ```yaml
-- uses: <owner>/context-lint@v0.1.0
+- uses: <owner>/context-lint@v1
   with:
     strict: true
 ```
