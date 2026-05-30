@@ -117,6 +117,9 @@ func BuildGraph(opts BuildOptions) (Graph, []diagnostic.Diagnostic) {
 				continue
 			}
 			if len(resolved.targets) == 0 {
+				if !shouldReportMissingReference(ref.TargetRaw) {
+					continue
+				}
 				key := fmt.Sprintf("%s:%d:%s", ref.SourceRel, ref.Line, ref.TargetRaw)
 				if !missingSeen[key] {
 					missingSeen[key] = true
@@ -461,6 +464,30 @@ func isPathTextKind(kind string) bool {
 
 func shouldExpandDirectory(kind string) bool {
 	return kind == KindMarkdownLink || kind == KindHTMLAttr
+}
+
+func shouldReportMissingReference(raw string) bool {
+	target := cleanRawReference(raw)
+	if target == "" {
+		return false
+	}
+	target = stripAnchor(target)
+	if decoded, err := url.PathUnescape(target); err == nil {
+		target = decoded
+	}
+	target = strings.ReplaceAll(target, "\\", "/")
+	if pattern.IsMarkdown(target) {
+		return true
+	}
+	if !pattern.HasMeta(target) {
+		return false
+	}
+	switch strings.ToLower(path.Ext(target)) {
+	case ".md", ".mdx", ".markdown":
+		return true
+	default:
+		return false
+	}
 }
 
 func isExplicitRelativeOrRoot(value string) bool {

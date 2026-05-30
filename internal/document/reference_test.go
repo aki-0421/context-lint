@@ -65,6 +65,56 @@ func TestBuildGraphDetectsMissingReferencesAndReachability(t *testing.T) {
 	}
 }
 
+func TestBuildGraphIgnoresMissingNonMarkdownReferences(t *testing.T) {
+	root := t.TempDir()
+	writeDocFile(t, root, "AGENTS.md", `[Docs](docs/index.md)
+Missing non-doc files: components.json, ./ProjectListScreen.types, @/*, ./src/*.
+
+`+"```tsx"+`
+import type { ProjectListScreenProps } from "./ProjectListScreen.types";
+
+export function ProjectListScreen() {
+  return <main>{/* project list */}</main>;
+}
+`+"```"+`
+`)
+	writeDocFile(t, root, "docs/index.md", "# Docs\n")
+
+	_, diags := BuildGraph(BuildOptions{
+		Root:     root,
+		Entry:    "AGENTS.md",
+		Excludes: pattern.NewMatcher(root, nil),
+	})
+	if len(diags) != 0 {
+		t.Fatalf("diagnostics = %#v, want none", diags)
+	}
+}
+
+func TestShouldReportMissingReferenceOnlyForMarkdownTargets(t *testing.T) {
+	tests := []struct {
+		raw  string
+		want bool
+	}{
+		{raw: "missing.md", want: true},
+		{raw: "docs/*.md", want: true},
+		{raw: "docs/guide.mdx#usage", want: true},
+		{raw: "components.json", want: false},
+		{raw: "./ProjectListScreen.types", want: false},
+		{raw: "{/*", want: false},
+		{raw: "*/}", want: false},
+		{raw: "@/*", want: false},
+		{raw: "./src/*", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.raw, func(t *testing.T) {
+			if got := shouldReportMissingReference(tt.raw); got != tt.want {
+				t.Fatalf("shouldReportMissingReference(%q) = %t, want %t", tt.raw, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestBuildGraphIgnoresExternalDomainLikePaths(t *testing.T) {
 	root := t.TempDir()
 	writeDocFile(t, root, "AGENTS.md", "Install github.com/aki-0421/context-lint/cmd/context-lint@latest\n")

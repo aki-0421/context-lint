@@ -2,7 +2,7 @@
 
 `context-lint` is a CLI and GitHub Action for keeping AI-readable repository documentation reachable from one Markdown entry point.
 
-It starts from a configured entry file, such as `AGENTS.md`, follows local Markdown references and file-path-like text, and reports documents that are missing or required but unreachable. The goal is simple: if an AI agent is expected to understand a repository from its docs, the docs must form a navigable graph.
+It starts from a configured entry file, such as `AGENTS.md`, follows local Markdown references and Markdown file-path-like text, and reports documents that are missing or required but unreachable. The goal is simple: if an AI agent is expected to understand a repository from its docs, the docs must form a navigable graph.
 
 ## Why
 
@@ -11,8 +11,8 @@ AI agents work best when repository context is short, explicit, and linked. A si
 `context-lint` helps maintain that shape by checking:
 
 - the entry Markdown file exists;
-- local Markdown links point to existing files;
-- file paths written in prose or code blocks point to existing files;
+- local Markdown document references point to existing files;
+- Markdown file paths written in prose or code blocks point to existing files;
 - required documentation is reachable from the entry file;
 - CI can enforce the documentation graph when a project is ready.
 
@@ -122,7 +122,7 @@ linter:
 
 `requiredReachable` accepts files, directories, and glob patterns. Directories expand to Markdown files under that directory.
 
-`excludes` accepts files, directories, and glob patterns. Excluded files are ignored by reachability and missing-reference checks.
+`excludes` accepts files, directories, and glob patterns. Excluded files are ignored by reachability and missing Markdown-reference checks.
 
 ## CLI Reference
 

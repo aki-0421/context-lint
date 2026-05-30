@@ -15,8 +15,8 @@ Reference:
 ### Problems It Solves
 
 - Important documents are not reachable from the entry context file.
-- Markdown links point to files that do not exist.
-- File paths written in prose or code blocks act as practical references, even when they are not strict Markdown links.
+- Markdown document references point to files that do not exist.
+- Markdown file paths written in prose or code blocks act as practical references, even when they are not strict Markdown links.
 - AI-readable documentation structure is not continuously validated in CI.
 
 ### Initial Scope
@@ -27,7 +27,7 @@ Reference:
 - Load configuration from `.context-lint.{ext}` at the project root.
 - Support YAML, JSON, and JSONC configuration files.
 - Extract references from Markdown links and file-path-like text.
-- Detect local file references that do not exist.
+- Detect local Markdown document references that do not exist.
 - Detect configured `requiredReachable` files, directories, or globs that are not reachable from the entry file.
 - Report AI-readable warnings by default.
 - Treat the same findings as errors when `--strict` is enabled.
@@ -90,7 +90,7 @@ linter:
 
 `linter.document.requiredReachable` is optional. Each item may be a file, directory, or glob. When a directory is specified, Markdown files under that directory are treated as required targets.
 
-`linter.document.excludes` is optional. Each item may be a file, directory, or glob. Excluded files are ignored by reachability checks, missing-reference checks, and `requiredReachable` expansion.
+`linter.document.excludes` is optional. Each item may be a file, directory, or glob. Excluded files are ignored by reachability checks, missing Markdown-reference checks, and `requiredReachable` expansion.
 
 ## CLI
 
@@ -132,7 +132,7 @@ In the initial version, all document findings are warnings by default. With `--s
 3. Validate that `entry` exists and is a Markdown file.
 4. Expand `requiredReachable` and `excludes`.
 5. Build a reference graph starting from `entry`.
-6. Check whether referenced local files exist.
+6. Check whether referenced local Markdown files exist.
 7. Check whether all required targets are reachable.
 8. Print diagnostics and decide the exit code.
 
@@ -140,7 +140,7 @@ In the initial version, all document findings are warnings by default. With `--s
 
 Each Markdown file is a node. Each local file reference inside that Markdown file is an edge.
 
-If the referenced target is a Markdown file, the target is parsed recursively. If the referenced target is a directory, Markdown files under that directory are treated as candidate targets. Non-Markdown targets, such as images, PDFs, and text files, are checked for existence but are not parsed recursively.
+If the referenced target is a Markdown file, the target is parsed recursively. If an explicit Markdown or HTML link points to a directory, Markdown files under that directory are treated as candidate targets. Non-Markdown targets, such as code files, images, PDFs, and text files, may be recorded when they exist but do not produce missing-file diagnostics when absent.
 
 ### Path Resolution
 
@@ -148,7 +148,7 @@ Relative paths are resolved from the directory of the Markdown file that contain
 
 Root-relative paths are resolved from the project root. For example, `/docs/spec.md` resolves to `<root>/docs/spec.md`.
 
-Anchor links use only their file portion for existence checks. For example, `docs/api.md#usage` resolves to `docs/api.md`. The initial version does not validate whether the anchor exists.
+Anchor links use only their file portion for Markdown existence checks. For example, `docs/api.md#usage` resolves to `docs/api.md`. The initial version does not validate whether the anchor exists.
 
 External URLs, email addresses, and URI-scheme references are ignored. Examples include `https://example.com`, `mailto:foo@example.com`, and `vscode://file/...`.
 
@@ -193,7 +193,7 @@ File-path-like strings may produce false positives, so diagnostics must include 
 - `kind: path-text`
 - `kind: path-code`
 
-The initial version reports missing targets from `path-text` and `path-code`. A future configuration option may allow teams to disable or tune this behavior.
+Missing-target diagnostics are limited to references whose file portion explicitly targets Markdown (`.md`, `.mdx`, or `.markdown`). Non-Markdown code paths, assets, path aliases, and globs are ignored when they do not exist.
 
 ## Diagnostics
 
@@ -203,7 +203,7 @@ The initial version reports missing targets from `path-text` and `path-code`. A 
 | --- | --- |
 | `CL001` | Entry file does not exist |
 | `CL002` | Entry file is not a Markdown file |
-| `CL003` | Local reference target does not exist |
+| `CL003` | Local Markdown reference target does not exist |
 | `CL004` | `requiredReachable` target is not reachable from the entry file |
 | `CL005` | Configuration format or value is invalid |
 | `CL006` | Reference attempts to escape the project root |
@@ -369,8 +369,9 @@ Create small temporary document trees and verify CLI behavior.
 Representative cases:
 
 - All required documents are reachable and no diagnostics are emitted.
-- A Markdown link points to a missing file.
-- Prose contains a file path to a missing file.
+- A Markdown link points to a missing Markdown file.
+- Prose contains a Markdown file path to a missing file.
+- Missing non-Markdown paths are ignored.
 - Only part of `requiredReachable` is reachable.
 - `excludes` suppresses an otherwise unreachable file.
 - `--format json` returns stable JSON.
