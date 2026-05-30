@@ -3,3 +3,4 @@ dist/
 coverage.out
 *.test
 /context-lint
+tmp/

@@ -311,6 +311,10 @@ func resolveReference(root string, sourceRel string, raw string, kind string) re
 				continue
 			}
 			if info.IsDir() {
+				if !shouldExpandDirectory(kind) {
+					targets = append(targets, match)
+					continue
+				}
 				files, err := markdownFilesUnder(root, match)
 				if err == nil {
 					targets = append(targets, files...)
@@ -344,6 +348,9 @@ func resolveReference(root string, sourceRel string, raw string, kind string) re
 		return resolvedReference{}
 	}
 	if info.IsDir() {
+		if !shouldExpandDirectory(kind) {
+			return resolvedReference{targets: []string{rel}}
+		}
 		files, err := markdownFilesUnder(root, rel)
 		if err != nil {
 			return resolvedReference{}
@@ -450,6 +457,10 @@ func hasKnownFileExtension(value string) bool {
 
 func isPathTextKind(kind string) bool {
 	return kind == KindPathText || kind == KindPathCode
+}
+
+func shouldExpandDirectory(kind string) bool {
+	return kind == KindMarkdownLink || kind == KindHTMLAttr
 }
 
 func isExplicitRelativeOrRoot(value string) bool {

@@ -79,6 +79,52 @@ func TestBuildGraphIgnoresExternalDomainLikePaths(t *testing.T) {
 	}
 }
 
+func TestBuildGraphDoesNotExpandPathLikeDirectories(t *testing.T) {
+	root := t.TempDir()
+	writeDocFile(t, root, "AGENTS.md", "```txt\napps/web/src\n```\nSee packages/ui.\n")
+	writeDocFile(t, root, "apps/web/src/hidden.md", "# Hidden\n")
+	writeDocFile(t, root, "packages/ui/hidden.md", "# Hidden\n")
+
+	graph, diags := BuildGraph(BuildOptions{
+		Root:     root,
+		Entry:    "AGENTS.md",
+		Excludes: pattern.NewMatcher(root, nil),
+	})
+	if len(diags) != 0 {
+		t.Fatalf("diagnostics = %#v, want none", diags)
+	}
+	if !graph.Reachable["apps/web/src"] {
+		t.Fatal("apps/web/src should be recorded as a reachable existing directory")
+	}
+	if !graph.Reachable["packages/ui"] {
+		t.Fatal("packages/ui should be recorded as a reachable existing directory")
+	}
+	if graph.Reachable["apps/web/src/hidden.md"] {
+		t.Fatal("path-code directory references should not expand nested Markdown files")
+	}
+	if graph.Reachable["packages/ui/hidden.md"] {
+		t.Fatal("path-text directory references should not expand nested Markdown files")
+	}
+}
+
+func TestBuildGraphExpandsLinkedDirectories(t *testing.T) {
+	root := t.TempDir()
+	writeDocFile(t, root, "AGENTS.md", "[Docs](docs)\n")
+	writeDocFile(t, root, "docs/guide.md", "# Guide\n")
+
+	graph, diags := BuildGraph(BuildOptions{
+		Root:     root,
+		Entry:    "AGENTS.md",
+		Excludes: pattern.NewMatcher(root, nil),
+	})
+	if len(diags) != 0 {
+		t.Fatalf("diagnostics = %#v, want none", diags)
+	}
+	if !graph.Reachable["docs/guide.md"] {
+		t.Fatal("markdown links to directories should still expand nested Markdown files")
+	}
+}
+
 func assertHasRef(t *testing.T, refs []Reference, raw string, kind string) {
 	t.Helper()
 	for _, ref := range refs {
