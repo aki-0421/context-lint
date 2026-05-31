@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/aki-0421/context-lint/internal/diagnostic"
@@ -55,6 +56,57 @@ func TestRunStrictFailsOnDocumentDiagnostics(t *testing.T) {
 
 	result := decodeResult(t, out.Bytes())
 	assertDiagnostic(t, result.Diagnostics, "CL004", diagnostic.SeverityError, "docs/security.md")
+}
+
+func TestRunWarnsWhenRequiredReachableTargetExceedsDefaultMaxFileSize(t *testing.T) {
+	root := t.TempDir()
+	writeRunnerFile(t, root, ".context-lint.yaml", `linter:
+  document:
+    entry: AGENTS.md
+    requiredReachable:
+      - docs/large.md
+`)
+	writeRunnerFile(t, root, "AGENTS.md", "[Large](docs/large.md)\n")
+	writeRunnerFile(t, root, "docs/large.md", strings.Repeat("a", 32*1024))
+
+	var out bytes.Buffer
+	code := Run(Options{Root: root, Format: "json", Stdout: &out})
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; output: %s", code, out.String())
+	}
+
+	result := decodeResult(t, out.Bytes())
+	assertDiagnostic(t, result.Diagnostics, "CL008", diagnostic.SeverityWarning, "docs/large.md")
+	if len(result.Diagnostics) != 1 {
+		t.Fatalf("diagnostics = %#v, want only CL008", result.Diagnostics)
+	}
+	if !strings.Contains(result.Diagnostics[0].Fix, "Split docs/large.md") || !strings.Contains(result.Diagnostics[0].Fix, "agents and humans") {
+		t.Fatalf("fix = %q, want split guidance for agents and humans", result.Diagnostics[0].Fix)
+	}
+}
+
+func TestRunUsesConfiguredRequiredReachableMaxFileSize(t *testing.T) {
+	root := t.TempDir()
+	writeRunnerFile(t, root, ".context-lint.yaml", `linter:
+  document:
+    entry: AGENTS.md
+    requiredReachable:
+      - docs/large.md
+    requiredReachableMaxFileSize: 64 KiB
+`)
+	writeRunnerFile(t, root, "AGENTS.md", "[Large](docs/large.md)\n")
+	writeRunnerFile(t, root, "docs/large.md", strings.Repeat("a", 33*1024))
+
+	var out bytes.Buffer
+	code := Run(Options{Root: root, Strict: true, Format: "json", Stdout: &out})
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; output: %s", code, out.String())
+	}
+
+	result := decodeResult(t, out.Bytes())
+	if !result.OK || len(result.Diagnostics) != 0 {
+		t.Fatalf("result = %#v, want ok with configured max file size", result)
+	}
 }
 
 func TestRunExcludesRequiredTargets(t *testing.T) {

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -19,6 +21,8 @@ var DefaultNames = []string{
 	".context-lint.jsonc",
 }
 
+const DefaultRequiredReachableMaxFileSizeBytes int64 = 32 * 1024
+
 type Config struct {
 	Linter LinterConfig `json:"linter" yaml:"linter"`
 }
@@ -28,14 +32,59 @@ type LinterConfig struct {
 }
 
 type DocumentConfig struct {
-	Entry             string            `json:"entry" yaml:"entry"`
-	RequiredReachable []string          `json:"requiredReachable" yaml:"requiredReachable"`
-	Excludes          []string          `json:"excludes" yaml:"excludes"`
-	FrontMatter       FrontMatterConfig `json:"frontMatter" yaml:"frontMatter"`
+	Entry                        string            `json:"entry" yaml:"entry"`
+	RequiredReachable            []string          `json:"requiredReachable" yaml:"requiredReachable"`
+	RequiredReachableMaxFileSize FileSize          `json:"requiredReachableMaxFileSize" yaml:"requiredReachableMaxFileSize"`
+	Excludes                     []string          `json:"excludes" yaml:"excludes"`
+	FrontMatter                  FrontMatterConfig `json:"frontMatter" yaml:"frontMatter"`
 }
 
 type FrontMatterConfig struct {
 	ExcludeFileNames []string `json:"excludeFileNames" yaml:"excludeFileNames"`
+}
+
+type FileSize struct {
+	Bytes int64
+	Set   bool
+}
+
+func (s *FileSize) UnmarshalJSON(data []byte) error {
+	value := strings.TrimSpace(string(data))
+	if value == "" || value == "null" {
+		return nil
+	}
+	if strings.HasPrefix(value, "\"") {
+		var raw string
+		if err := json.Unmarshal(data, &raw); err != nil {
+			return err
+		}
+		return s.setFromString(raw)
+	}
+	return s.setFromString(value)
+}
+
+func (s *FileSize) UnmarshalYAML(value *yaml.Node) error {
+	if value == nil || value.Kind == 0 || value.Tag == "!!null" {
+		return nil
+	}
+	return s.setFromString(value.Value)
+}
+
+func (s *FileSize) EffectiveBytes(defaultBytes int64) int64 {
+	if s.Set {
+		return s.Bytes
+	}
+	return defaultBytes
+}
+
+func (s *FileSize) setFromString(value string) error {
+	bytes, err := parseFileSize(value)
+	if err != nil {
+		return err
+	}
+	s.Bytes = bytes
+	s.Set = true
+	return nil
 }
 
 func Discover(root string, explicit string) (string, error) {
@@ -132,6 +181,62 @@ func normalizeFileNames(names []string) []string {
 		}
 	}
 	return out
+}
+
+func parseFileSize(value string) (int64, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, fmt.Errorf("file size must not be empty")
+	}
+
+	value = strings.ReplaceAll(value, "_", "")
+	value = strings.ReplaceAll(value, " ", "")
+	i := 0
+	for i < len(value) && (value[i] >= '0' && value[i] <= '9' || value[i] == '.') {
+		i++
+	}
+	if i == 0 {
+		return 0, fmt.Errorf("file size %q must start with a number", value)
+	}
+
+	numberPart := value[:i]
+	unitPart := strings.ToLower(value[i:])
+	number, err := strconv.ParseFloat(numberPart, 64)
+	if err != nil {
+		return 0, fmt.Errorf("file size %q is not a valid number", value)
+	}
+	if number <= 0 || math.IsInf(number, 0) || math.IsNaN(number) {
+		return 0, fmt.Errorf("file size %q must be greater than zero", value)
+	}
+
+	multiplier, ok := fileSizeMultiplier(unitPart)
+	if !ok {
+		return 0, fmt.Errorf("file size unit %q is not supported", unitPart)
+	}
+	bytes := number * float64(multiplier)
+	if bytes > float64(math.MaxInt64) {
+		return 0, fmt.Errorf("file size %q is too large", value)
+	}
+	rounded := math.Round(bytes)
+	if math.Abs(bytes-rounded) > 0.0000001 {
+		return 0, fmt.Errorf("file size %q must resolve to whole bytes", value)
+	}
+	return int64(rounded), nil
+}
+
+func fileSizeMultiplier(unit string) (int64, bool) {
+	switch unit {
+	case "", "b", "byte", "bytes":
+		return 1, true
+	case "k", "kb", "kib":
+		return 1024, true
+	case "m", "mb", "mib":
+		return 1024 * 1024, true
+	case "g", "gb", "gib":
+		return 1024 * 1024 * 1024, true
+	default:
+		return 0, false
+	}
 }
 
 func stripJSONComments(src []byte) []byte {

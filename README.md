@@ -14,6 +14,7 @@ AI agents work best when repository context is short, explicit, and linked. A si
 - local Markdown document references point to existing files;
 - Markdown file paths written in prose or code blocks point to existing files;
 - required documentation is reachable from the entry file;
+- required documentation stays small enough to read and split into focused files;
 - CI can enforce the documentation graph when a project is ready.
 
 ## Status
@@ -123,6 +124,7 @@ linter:
   document:
     entry: string
     requiredReachable: string[]
+    requiredReachableMaxFileSize: string | number
     excludes: string[]
     frontMatter:
       excludeFileNames: string[]
@@ -131,6 +133,8 @@ linter:
 `entry` is required and must point to one Markdown file.
 
 `requiredReachable` accepts files, directories, and glob patterns. Directories expand to Markdown files under that directory.
+
+`requiredReachableMaxFileSize` is optional and can usually be omitted. It defaults to `32 KiB` and reports required Markdown files that reach or exceed the limit so agents and humans know to split large context files into smaller linked documents. Set it only when a project needs a different limit, using values such as `64 KiB`, `1 MiB`, or a byte count.
 
 `excludes` accepts files, directories, and glob patterns. Excluded files are ignored by reachability and missing Markdown-reference checks.
 

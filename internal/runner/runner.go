@@ -130,6 +130,7 @@ func Run(opts Options) int {
 					})
 				}
 			}
+			diags = append(diags, checkRequiredReachableFileSizes(root, entry, required, docCfg.RequiredReachableMaxFileSize.EffectiveBytes(config.DefaultRequiredReachableMaxFileSizeBytes))...)
 		}
 	}
 
@@ -304,6 +305,49 @@ func validateEntry(root string, entry string, excludes pattern.Matcher) []diagno
 		})
 	}
 	return diags
+}
+
+func checkRequiredReachableFileSizes(root string, entry string, required []string, maxBytes int64) []diagnostic.Diagnostic {
+	var diags []diagnostic.Diagnostic
+	for _, target := range required {
+		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(target)))
+		if err != nil || info.IsDir() || info.Size() < maxBytes {
+			continue
+		}
+		diags = append(diags, diagnostic.Diagnostic{
+			Code:      "CL008",
+			File:      target,
+			Message:   fmt.Sprintf("requiredReachable target %s is %s, at or above the %s limit.", target, formatFileSize(info.Size()), formatFileSize(maxBytes)),
+			Fix:       fmt.Sprintf("Split %s into smaller focused Markdown files, then link them from %s or an index document so agents and humans can read the context progressively.", target, entry),
+			Reference: target,
+		})
+	}
+	return diags
+}
+
+func formatFileSize(bytes int64) string {
+	const (
+		kib = int64(1024)
+		mib = kib * 1024
+		gib = mib * 1024
+	)
+	switch {
+	case bytes >= gib:
+		return formatScaledFileSize(bytes, gib, "GiB")
+	case bytes >= mib:
+		return formatScaledFileSize(bytes, mib, "MiB")
+	case bytes >= kib:
+		return formatScaledFileSize(bytes, kib, "KiB")
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
+}
+
+func formatScaledFileSize(bytes int64, unit int64, suffix string) string {
+	if bytes%unit == 0 {
+		return fmt.Sprintf("%d %s", bytes/unit, suffix)
+	}
+	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(unit), suffix)
 }
 
 func resultWithDiagnostic(opts Options, root string, configPath string, diag diagnostic.Diagnostic) diagnostic.Result {

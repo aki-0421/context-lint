@@ -29,6 +29,7 @@ Reference:
 - Extract references from Markdown links and file-path-like text.
 - Detect local Markdown document references that do not exist.
 - Detect configured `requiredReachable` files, directories, or globs that are not reachable from the entry file.
+- Detect configured `requiredReachable` Markdown files that exceed the readable file-size limit.
 - Report AI-readable warnings by default.
 - Treat the same findings as errors when `--strict` is enabled.
 
@@ -46,6 +47,7 @@ Reference:
 - Reachable: A file can be reached by following local references starting from the entry file.
 - Reference: A Markdown link, image link, local HTML link, or file-path-like string in Markdown content.
 - `requiredReachable`: Files, directories, or globs that must be reachable from the entry file.
+- `requiredReachableMaxFileSize`: Optional file-size limit for Markdown files expanded from `requiredReachable`.
 - `excludes`: Files, directories, or globs excluded from linting.
 - `frontMatter.excludeFileNames`: Markdown file names excluded from missing-front-matter diagnostics.
 - Diagnostic: A warning or error emitted by the linter.
@@ -85,6 +87,7 @@ linter:
   document:
     entry: string
     requiredReachable: string[]
+    requiredReachableMaxFileSize: string | number
     excludes: string[]
     frontMatter:
       excludeFileNames: string[]
@@ -95,6 +98,8 @@ linter:
 `linter.document.entry` is required. It must be a project-root-relative path to a single Markdown file.
 
 `linter.document.requiredReachable` is optional. Each item may be a file, directory, or glob. When a directory is specified, Markdown files under that directory are treated as required targets.
+
+`linter.document.requiredReachableMaxFileSize` is optional and can usually be omitted. When omitted, the default limit is `32 KiB`. The value may be a byte count or a human-readable binary size such as `64 KiB` or `1 MiB`. Required Markdown targets at or above the limit produce a diagnostic that recommends splitting the file into smaller linked documents for both AI agents and humans.
 
 `linter.document.excludes` is optional. Each item may be a file, directory, or glob. Excluded files are ignored by reachability checks, missing Markdown-reference checks, and `requiredReachable` expansion.
 
@@ -168,7 +173,8 @@ In the initial version, all document findings are warnings by default. With `--s
 5. Build a reference graph starting from `entry`.
 6. Check whether referenced local Markdown files exist.
 7. Check whether all required targets are reachable.
-8. Print diagnostics and decide the exit code.
+8. Check whether all required Markdown targets are within the configured file-size limit.
+9. Print diagnostics and decide the exit code.
 
 ### Reference Graph
 
@@ -242,6 +248,7 @@ Missing-target diagnostics are limited to references whose file portion explicit
 | `CL005` | Configuration format or value is invalid |
 | `CL006` | Reference attempts to escape the project root |
 | `CL007` | Markdown file does not have front matter |
+| `CL008` | `requiredReachable` target exceeds the file-size limit |
 
 ### Human Output
 
@@ -257,6 +264,10 @@ warning CL003 docs/index.md:12
 warning CL004 AGENTS.md
   requiredReachable target docs/security.md is not reachable from AGENTS.md.
   Fix: add a path from AGENTS.md to docs/security.md, directly or through an index document.
+
+warning CL008 docs/large.md
+  requiredReachable target docs/large.md is 33 KiB, at or above the 32 KiB limit.
+  Fix: split docs/large.md into smaller focused Markdown files, then link them from AGENTS.md or an index document so agents and humans can read the context progressively.
 ```
 
 With `--strict`:
@@ -308,6 +319,17 @@ If the item is a directory, Markdown files under that directory are recursively 
 If the item is a glob, matched Markdown files are treated as required targets. Non-Markdown matches are ignored for reachability in the initial version.
 
 If an item expands to zero targets, the tool should emit `CL005` because the configuration is probably wrong.
+
+Each expanded Markdown target is also checked against `linter.document.requiredReachableMaxFileSize`. The default is `32 KiB` even when the field is absent from the configuration. Projects can raise or lower the limit by adding the optional field:
+
+```yaml
+linter:
+  document:
+    entry: AGENTS.md
+    requiredReachable:
+      - docs
+    requiredReachableMaxFileSize: 64 KiB
+```
 
 ## `excludes`
 
@@ -394,6 +416,7 @@ Library choices should prioritize small dependency footprint, maintainability, a
 - File-path-like text extraction.
 - Relative paths, root-relative paths, and anchor paths.
 - `requiredReachable` expansion.
+- Required target file-size diagnostics.
 - `excludes` application.
 - Strict and non-strict exit codes.
 

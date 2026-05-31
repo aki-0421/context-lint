@@ -75,6 +75,43 @@ func TestLoadFrontMatterExcludeFileNames(t *testing.T) {
 	}
 }
 
+func TestLoadRequiredReachableMaxFileSize(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ".context-lint.yaml")
+	writeFile(t, configPath, `linter:
+  document:
+    entry: AGENTS.md
+    requiredReachableMaxFileSize: 64 KiB
+`)
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	got := cfg.Linter.Document.RequiredReachableMaxFileSize
+	if !got.Set {
+		t.Fatal("requiredReachableMaxFileSize.Set = false, want true")
+	}
+	if got.Bytes != 64*1024 {
+		t.Fatalf("requiredReachableMaxFileSize.Bytes = %d, want %d", got.Bytes, 64*1024)
+	}
+}
+
+func TestLoadRejectsInvalidRequiredReachableMaxFileSize(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ".context-lint.yaml")
+	writeFile(t, configPath, `linter:
+  document:
+    entry: AGENTS.md
+    requiredReachableMaxFileSize: tiny
+`)
+
+	_, err := Load(configPath)
+	if err == nil {
+		t.Fatal("Load returned nil error, want invalid file size error")
+	}
+}
+
 func TestLoadRequiresEntry(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, ".context-lint.yaml")
