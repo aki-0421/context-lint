@@ -1,14 +1,17 @@
 package runner
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/aki-0421/context-lint/internal/config"
 	"github.com/aki-0421/context-lint/internal/diagnostic"
 	"github.com/aki-0421/context-lint/internal/document"
+	"github.com/aki-0421/context-lint/internal/frontmatter"
 	"github.com/aki-0421/context-lint/internal/pattern"
 )
 
@@ -20,6 +23,15 @@ type Options struct {
 	NoColor    bool
 	Stdout     io.Writer
 	Stderr     io.Writer
+}
+
+type ListResult struct {
+	OK          bool                    `json:"ok"`
+	Strict      bool                    `json:"strict"`
+	Root        string                  `json:"root"`
+	Path        string                  `json:"path"`
+	FrontMatter []frontmatter.Item      `json:"frontMatter"`
+	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
 func Run(opts Options) int {
@@ -142,6 +154,84 @@ func Run(opts Options) int {
 	return 0
 }
 
+func List(opts Options, target string) int {
+	if opts.Stdout == nil {
+		opts.Stdout = io.Discard
+	}
+	if opts.Stderr == nil {
+		opts.Stderr = io.Discard
+	}
+	if opts.Format == "" {
+		opts.Format = "human"
+	}
+	if opts.Format != "human" && opts.Format != "json" {
+		result := listResultWithDiagnostic(opts, "", "", diagnostic.Diagnostic{
+			Code:    "CL005",
+			Message: fmt.Sprintf("Output format %q is not supported.", opts.Format),
+			Fix:     "Use --format human or --format json.",
+		})
+		writeListResult(opts, result)
+		return 2
+	}
+
+	root, err := resolveRoot(opts.Root)
+	if err != nil {
+		result := listResultWithDiagnostic(opts, "", "", diagnostic.Diagnostic{
+			Code:    "CL005",
+			Message: fmt.Sprintf("Project root is invalid: %v.", err),
+			Fix:     "Pass a valid directory with --root or run context-lint from the project root.",
+		})
+		writeListResult(opts, result)
+		return 2
+	}
+
+	excludeFileNames, configDiags := listFrontMatterExcludeFileNames(opts, root)
+	if len(configDiags) > 0 {
+		diagnostic.ApplySeverity(configDiags, opts.Strict)
+		diagnostic.Sort(configDiags)
+		result := ListResult{
+			OK:          false,
+			Strict:      opts.Strict,
+			Root:        root,
+			FrontMatter: []frontmatter.Item{},
+			Diagnostics: configDiags,
+		}
+		writeListResult(opts, result)
+		return 2
+	}
+
+	scanned := frontmatter.ScanDirectory(root, target, frontmatter.ScanOptions{
+		ExcludeFileNames: excludeFileNames,
+	})
+	diagnostic.ApplySeverity(scanned.Diagnostics, opts.Strict)
+	diagnostic.Sort(scanned.Diagnostics)
+	items := scanned.Items
+	if items == nil {
+		items = []frontmatter.Item{}
+	}
+	diags := scanned.Diagnostics
+	if diags == nil {
+		diags = []diagnostic.Diagnostic{}
+	}
+	result := ListResult{
+		OK:          len(diags) == 0,
+		Strict:      opts.Strict,
+		Root:        root,
+		Path:        scanned.Path,
+		FrontMatter: items,
+		Diagnostics: diags,
+	}
+	writeListResult(opts, result)
+
+	if hasConfigError(diags) {
+		return 2
+	}
+	if opts.Strict && len(diags) > 0 {
+		return 1
+	}
+	return 0
+}
+
 func resolveRoot(root string) (string, error) {
 	if root == "" {
 		var err error
@@ -228,6 +318,46 @@ func resultWithDiagnostic(opts Options, root string, configPath string, diag dia
 	}
 }
 
+func listResultWithDiagnostic(opts Options, root string, path string, diag diagnostic.Diagnostic) ListResult {
+	diags := []diagnostic.Diagnostic{diag}
+	diagnostic.ApplySeverity(diags, opts.Strict)
+	return ListResult{
+		OK:          false,
+		Strict:      opts.Strict,
+		Root:        root,
+		Path:        path,
+		FrontMatter: []frontmatter.Item{},
+		Diagnostics: diags,
+	}
+}
+
+func listFrontMatterExcludeFileNames(opts Options, root string) ([]string, []diagnostic.Diagnostic) {
+	configPath, err := config.Discover(root, opts.ConfigPath)
+	if err != nil {
+		if opts.ConfigPath == "" {
+			return nil, nil
+		}
+		return nil, []diagnostic.Diagnostic{{
+			Code:    "CL005",
+			Message: err.Error() + ".",
+			Fix:     "Pass an existing configuration file with --config or remove the option.",
+		}}
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		configRel := relToRoot(root, configPath)
+		return nil, []diagnostic.Diagnostic{{
+			Code:    "CL005",
+			File:    configRel,
+			Message: fmt.Sprintf("Configuration file %s is invalid: %v.", configRel, err),
+			Fix:     "Fix the configuration file format and required fields.",
+		}}
+	}
+
+	return cfg.Linter.Document.FrontMatter.ExcludeFileNames, nil
+}
+
 func writeResult(opts Options, result diagnostic.Result) {
 	switch opts.Format {
 	case "human":
@@ -237,6 +367,60 @@ func writeResult(opts Options, result diagnostic.Result) {
 	default:
 		_ = diagnostic.WriteHuman(opts.Stdout, result)
 	}
+}
+
+func writeListResult(opts Options, result ListResult) {
+	switch opts.Format {
+	case "human":
+		_ = writeListHuman(opts.Stdout, result)
+	case "json":
+		enc := json.NewEncoder(opts.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(result)
+	default:
+		_ = writeListHuman(opts.Stdout, result)
+	}
+}
+
+func writeListHuman(w io.Writer, result ListResult) error {
+	if len(result.FrontMatter) == 0 && len(result.Diagnostics) == 0 {
+		_, err := fmt.Fprintln(w, "context-lint list: no Markdown files found")
+		return err
+	}
+
+	for i, item := range result.FrontMatter {
+		if i > 0 {
+			if _, err := fmt.Fprintln(w); err != nil {
+				return err
+			}
+		}
+		if _, err := fmt.Fprintln(w, item.File); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprint(w, item.Content); err != nil {
+			return err
+		}
+		if !strings.HasSuffix(item.Content, "\n") {
+			if _, err := fmt.Fprintln(w); err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(result.Diagnostics) == 0 {
+		return nil
+	}
+	if len(result.FrontMatter) > 0 {
+		if _, err := fmt.Fprintln(w); err != nil {
+			return err
+		}
+	}
+	return diagnostic.WriteHuman(w, diagnostic.Result{
+		OK:          result.OK,
+		Strict:      result.Strict,
+		Root:        result.Root,
+		Diagnostics: result.Diagnostics,
+	})
 }
 
 func hasConfigError(diags []diagnostic.Diagnostic) bool {

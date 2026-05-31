@@ -2,6 +2,7 @@ package main
 
 import (
 	"runtime/debug"
+	"strings"
 	"testing"
 )
 
@@ -54,5 +55,52 @@ func TestApplyBuildInfoFallbackUsesVCSSettings(t *testing.T) {
 	}
 	if got.date != "2026-05-24T00:00:00Z" {
 		t.Fatalf("date = %q, want VCS time", got.date)
+	}
+}
+
+func TestSplitListArgsAllowsFlagsAfterPath(t *testing.T) {
+	flagArgs, positionals := splitListArgs([]string{"docs", "--format", "json", "--strict"})
+
+	if got, want := strings.Join(flagArgs, ","), "--format,json,--strict"; got != want {
+		t.Fatalf("flagArgs = %q, want %q", got, want)
+	}
+	if got, want := strings.Join(positionals, ","), "docs"; got != want {
+		t.Fatalf("positionals = %q, want %q", got, want)
+	}
+}
+
+func TestSplitListArgsAllowsFlagsBeforePath(t *testing.T) {
+	flagArgs, positionals := splitListArgs([]string{"--strict", "--root=.", "docs"})
+
+	if got, want := strings.Join(flagArgs, ","), "--strict,--root=."; got != want {
+		t.Fatalf("flagArgs = %q, want %q", got, want)
+	}
+	if got, want := strings.Join(positionals, ","), "docs"; got != want {
+		t.Fatalf("positionals = %q, want %q", got, want)
+	}
+}
+
+func TestSplitListArgsAllowsConfigAfterPath(t *testing.T) {
+	flagArgs, positionals := splitListArgs([]string{"docs", "--config", ".context-lint.yaml"})
+
+	if got, want := strings.Join(flagArgs, ","), "--config,.context-lint.yaml"; got != want {
+		t.Fatalf("flagArgs = %q, want %q", got, want)
+	}
+	if got, want := strings.Join(positionals, ","), "docs"; got != want {
+		t.Fatalf("positionals = %q, want %q", got, want)
+	}
+}
+
+func TestConfigGuideTextMentionsFrontMatterExclusions(t *testing.T) {
+	got := configGuideText()
+	for _, want := range []string{
+		"frontMatter:",
+		"excludeFileNames:",
+		"index.md is excluded",
+		"context-lint list reports CL007",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("configGuideText() missing %q:\n%s", want, got)
+		}
 	}
 }

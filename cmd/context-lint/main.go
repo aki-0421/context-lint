@@ -21,6 +21,13 @@ func main() {
 }
 
 func run(args []string) int {
+	if len(args) > 0 && args[0] == "config-guide" {
+		return runConfigGuide(args[1:])
+	}
+	if len(args) > 0 && args[0] == "list" {
+		return runList(args[1:], runner.Options{})
+	}
+
 	var opts runner.Options
 	var showVersion bool
 
@@ -45,7 +52,118 @@ func run(args []string) int {
 
 	opts.Stdout = os.Stdout
 	opts.Stderr = os.Stderr
+	if fs.NArg() > 0 {
+		switch fs.Arg(0) {
+		case "config-guide":
+			return runConfigGuide(fs.Args()[1:])
+		case "list":
+			return runList(fs.Args()[1:], opts)
+		}
+		fmt.Fprintf(os.Stderr, "unknown command %q\n", fs.Arg(0))
+		return 2
+	}
 	return runner.Run(opts)
+}
+
+func runConfigGuide(args []string) int {
+	if len(args) > 0 {
+		fmt.Fprintf(os.Stderr, "unexpected argument %q\n", args[0])
+		return 2
+	}
+	fmt.Fprint(os.Stdout, configGuideText())
+	return 0
+}
+
+func configGuideText() string {
+	return `context-lint configuration guide
+
+Front matter list exclusions
+
+Use this when context-lint list reports CL007 for Markdown files that should not carry front matter, such as generated or routing files.
+
+.context-lint.yaml:
+
+linter:
+  document:
+    entry: AGENTS.md
+    frontMatter:
+      excludeFileNames:
+        - README.md
+        - CHANGELOG.md
+
+Notes:
+- index.md is excluded from missing-front-matter diagnostics by default.
+- excludeFileNames matches file names, not paths.
+- Files with front matter are still printed by context-lint list.
+`
+}
+
+func runList(args []string, opts runner.Options) int {
+	if opts.Format == "" {
+		opts.Format = "human"
+	}
+	flagArgs, positionals := splitListArgs(args)
+
+	fs := flag.NewFlagSet("context-lint list", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	fs.StringVar(&opts.ConfigPath, "config", opts.ConfigPath, "use a specific configuration file")
+	fs.StringVar(&opts.Root, "root", opts.Root, "use a specific project root")
+	fs.BoolVar(&opts.Strict, "strict", opts.Strict, "treat warnings as errors")
+	fs.StringVar(&opts.Format, "format", opts.Format, "output format: human or json")
+	fs.BoolVar(&opts.NoColor, "no-color", opts.NoColor, "disable ANSI color")
+
+	if err := fs.Parse(flagArgs); err != nil {
+		return 2
+	}
+
+	opts.Stdout = os.Stdout
+	opts.Stderr = os.Stderr
+	target := ""
+	if len(positionals) > 0 {
+		target = positionals[0]
+	}
+	if len(positionals) > 1 {
+		fmt.Fprintf(os.Stderr, "unexpected argument %q\n", positionals[1])
+		return 2
+	}
+	return runner.List(opts, target)
+}
+
+func splitListArgs(args []string) ([]string, []string) {
+	var flagArgs []string
+	var positionals []string
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			positionals = append(positionals, args[i+1:]...)
+			break
+		}
+		if strings.HasPrefix(arg, "-") && arg != "-" {
+			flagArgs = append(flagArgs, arg)
+			if listFlagNeedsValue(arg) && i+1 < len(args) {
+				i++
+				flagArgs = append(flagArgs, args[i])
+			}
+			continue
+		}
+		positionals = append(positionals, arg)
+	}
+
+	return flagArgs, positionals
+}
+
+func listFlagNeedsValue(arg string) bool {
+	name := strings.TrimLeft(arg, "-")
+	if _, _, hasValue := strings.Cut(name, "="); hasValue {
+		return false
+	}
+	switch name {
+	case "config", "format", "root":
+		return true
+	default:
+		return false
+	}
 }
 
 type buildMetadata struct {

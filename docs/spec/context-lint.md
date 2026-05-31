@@ -47,6 +47,7 @@ Reference:
 - Reference: A Markdown link, image link, local HTML link, or file-path-like string in Markdown content.
 - `requiredReachable`: Files, directories, or globs that must be reachable from the entry file.
 - `excludes`: Files, directories, or globs excluded from linting.
+- `frontMatter.excludeFileNames`: Markdown file names excluded from missing-front-matter diagnostics.
 - Diagnostic: A warning or error emitted by the linter.
 
 ## Configuration
@@ -72,6 +73,9 @@ linter:
       - docs
     excludes:
       - README.md
+    frontMatter:
+      excludeFileNames:
+        - CHANGELOG.md
 ```
 
 ### Schema
@@ -82,6 +86,8 @@ linter:
     entry: string
     requiredReachable: string[]
     excludes: string[]
+    frontMatter:
+      excludeFileNames: string[]
 ```
 
 ### Fields
@@ -92,12 +98,18 @@ linter:
 
 `linter.document.excludes` is optional. Each item may be a file, directory, or glob. Excluded files are ignored by reachability checks, missing Markdown-reference checks, and `requiredReachable` expansion.
 
+`linter.document.frontMatter.excludeFileNames` is optional. Each item is interpreted as a file name, not a project-root-relative path. Matching Markdown files are skipped only for missing-front-matter diagnostics from `context-lint list`. `index.md` is always skipped by default because it is treated as a routing document.
+
+`context-lint config-guide` prints a short configuration example that shows this setting.
+
 ## CLI
 
 ### Command
 
 ```bash
 context-lint [flags]
+context-lint list <path> [flags]
+context-lint config-guide
 ```
 
 ### Flags
@@ -110,6 +122,28 @@ context-lint [flags]
 --no-color          Disable ANSI color
 --version           Print the version
 --help              Print help
+```
+
+The `list` command prints only the leading YAML front matter blocks for Markdown files under `<path>`. Files without front matter are not printed as front matter entries; they emit `CL007` diagnostics. With `--strict`, those diagnostics are errors and the command exits non-zero. Missing-front-matter diagnostics are not emitted for `index.md` files, nor for file names listed in `linter.document.frontMatter.excludeFileNames`.
+
+The `config-guide` command prints configuration examples for common diagnostics. `CL007` fix messages should mention this command so users can discover `linter.document.frontMatter.excludeFileNames` when they want to exclude routing or generated files.
+
+For `--format json`, `list` returns:
+
+```json
+{
+  "ok": true,
+  "strict": false,
+  "root": "/repo",
+  "path": "docs",
+  "frontMatter": [
+    {
+      "file": "docs/guide.md",
+      "content": "---\ntitle: Guide\n---\n"
+    }
+  ],
+  "diagnostics": []
+}
 ```
 
 ### Exit Codes
@@ -207,6 +241,7 @@ Missing-target diagnostics are limited to references whose file portion explicit
 | `CL004` | `requiredReachable` target is not reachable from the entry file |
 | `CL005` | Configuration format or value is invalid |
 | `CL006` | Reference attempts to escape the project root |
+| `CL007` | Markdown file does not have front matter |
 
 ### Human Output
 

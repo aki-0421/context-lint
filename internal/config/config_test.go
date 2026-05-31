@@ -46,6 +46,35 @@ func TestLoadJSONC(t *testing.T) {
 	}
 }
 
+func TestLoadFrontMatterExcludeFileNames(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ".context-lint.yaml")
+	writeFile(t, configPath, `linter:
+  document:
+    entry: AGENTS.md
+    frontMatter:
+      excludeFileNames:
+        - README.md
+        - docs/CHANGELOG.md
+        - docs\ROUTES.md
+`)
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	got := cfg.Linter.Document.FrontMatter.ExcludeFileNames
+	want := []string{"README.md", "CHANGELOG.md", "ROUTES.md"}
+	if len(got) != len(want) {
+		t.Fatalf("excludeFileNames = %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("excludeFileNames = %#v, want %#v", got, want)
+		}
+	}
+}
+
 func TestLoadRequiresEntry(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, ".context-lint.yaml")

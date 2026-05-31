@@ -60,6 +60,14 @@ Use JSON output for automation:
 context-lint --format json
 ```
 
+List Markdown front matter under a directory:
+
+```bash
+context-lint list docs
+```
+
+Only files with leading YAML front matter are printed. Markdown files without front matter are reported as warnings, or errors when `--strict` is enabled.
+
 ## GitHub Action
 
 The simplest workflow only needs checkout and this action:
@@ -116,6 +124,8 @@ linter:
     entry: string
     requiredReachable: string[]
     excludes: string[]
+    frontMatter:
+      excludeFileNames: string[]
 ```
 
 `entry` is required and must point to one Markdown file.
@@ -124,7 +134,19 @@ linter:
 
 `excludes` accepts files, directories, and glob patterns. Excluded files are ignored by reachability and missing Markdown-reference checks.
 
+`frontMatter.excludeFileNames` is optional. It excludes matching Markdown file names from missing-front-matter warnings and errors in `context-lint list`. `index.md` is always excluded by default as a routing document, so the field can usually be omitted.
+
+Run `context-lint config-guide` to print a short configuration example for front matter exclusions.
+
 ## CLI Reference
+
+```text
+context-lint [flags]
+context-lint list <path> [flags]
+context-lint config-guide
+```
+
+Flags:
 
 ```text
 --config <path>     Use a specific configuration file
@@ -135,6 +157,10 @@ linter:
 --version           Print the version
 --help              Print help
 ```
+
+The `list` command supports `--config`, `--root`, `--strict`, `--format`, `--no-color`, and recursively scans Markdown files under `<path>`.
+
+The `config-guide` command prints configuration examples for common diagnostics, including excluding file names from missing-front-matter checks.
 
 Exit codes:
 

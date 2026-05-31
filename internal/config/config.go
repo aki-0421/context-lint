@@ -28,9 +28,14 @@ type LinterConfig struct {
 }
 
 type DocumentConfig struct {
-	Entry             string   `json:"entry" yaml:"entry"`
-	RequiredReachable []string `json:"requiredReachable" yaml:"requiredReachable"`
-	Excludes          []string `json:"excludes" yaml:"excludes"`
+	Entry             string            `json:"entry" yaml:"entry"`
+	RequiredReachable []string          `json:"requiredReachable" yaml:"requiredReachable"`
+	Excludes          []string          `json:"excludes" yaml:"excludes"`
+	FrontMatter       FrontMatterConfig `json:"frontMatter" yaml:"frontMatter"`
+}
+
+type FrontMatterConfig struct {
+	ExcludeFileNames []string `json:"excludeFileNames" yaml:"excludeFileNames"`
 }
 
 func Discover(root string, explicit string) (string, error) {
@@ -91,6 +96,7 @@ func Load(path string) (Config, error) {
 	cfg.Linter.Document.Entry = normalizeConfigPath(cfg.Linter.Document.Entry)
 	cfg.Linter.Document.RequiredReachable = normalizeConfigPaths(cfg.Linter.Document.RequiredReachable)
 	cfg.Linter.Document.Excludes = normalizeConfigPaths(cfg.Linter.Document.Excludes)
+	cfg.Linter.Document.FrontMatter.ExcludeFileNames = normalizeFileNames(cfg.Linter.Document.FrontMatter.ExcludeFileNames)
 
 	return cfg, nil
 }
@@ -112,6 +118,20 @@ func normalizeConfigPath(path string) string {
 	path = strings.TrimPrefix(path, "/")
 	path = filepath.ToSlash(path)
 	return path
+}
+
+func normalizeFileNames(names []string) []string {
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		name = strings.ReplaceAll(name, "\\", "/")
+		name = filepath.ToSlash(name)
+		name = filepath.Base(name)
+		if name != "." && name != "" {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 func stripJSONComments(src []byte) []byte {
