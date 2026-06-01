@@ -239,6 +239,100 @@ func TestListSkipsConfiguredMissingFrontMatterFileNames(t *testing.T) {
 	}
 }
 
+func TestManagedCheckReturnsWhetherPathIsRequiredAndNotExcluded(t *testing.T) {
+	root := t.TempDir()
+	writeRunnerFile(t, root, ".context-lint.yaml", `linter:
+  document:
+    entry: AGENTS.md
+    requiredReachable:
+      - docs
+    excludes:
+      - docs/secret.md
+`)
+	writeRunnerFile(t, root, "docs/index.md", "# Index\n")
+	writeRunnerFile(t, root, "docs/secret.md", "# Secret\n")
+
+	var out bytes.Buffer
+	code := ManagedCheck(Options{Root: root, Format: "json", Stdout: &out}, "docs/index.md")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; output: %s", code, out.String())
+	}
+	var result ManagedCheckResult
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("json.Unmarshal: %v\n%s", err, out.String())
+	}
+	if !result.Managed || result.Path != "docs/index.md" {
+		t.Fatalf("result = %#v, want docs/index.md managed", result)
+	}
+
+	out.Reset()
+	code = ManagedCheck(Options{Root: root, Format: "json", Stdout: &out}, "docs/secret.md")
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; output: %s", code, out.String())
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("json.Unmarshal: %v\n%s", err, out.String())
+	}
+	if result.Managed {
+		t.Fatalf("result = %#v, want excluded file not managed", result)
+	}
+}
+
+func TestManagedListOutputsOnlyDirectManagedFiles(t *testing.T) {
+	root := t.TempDir()
+	writeRunnerFile(t, root, ".context-lint.yaml", `linter:
+  document:
+    entry: AGENTS.md
+    requiredReachable:
+      - docs
+    excludes:
+      - docs/secret.md
+`)
+	writeRunnerFile(t, root, "docs/a.md", "# A\n")
+	writeRunnerFile(t, root, "docs/secret.md", "# Secret\n")
+	writeRunnerFile(t, root, "docs/nested/b.md", "# B\n")
+
+	var out bytes.Buffer
+	code := ManagedList(Options{Root: root, Format: "json", Stdout: &out}, "docs")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; output: %s", code, out.String())
+	}
+
+	var result ManagedListResult
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("json.Unmarshal: %v\n%s", err, out.String())
+	}
+	if got, want := strings.Join(result.Files, ","), "docs/a.md"; got != want {
+		t.Fatalf("files = %q, want %q", got, want)
+	}
+}
+
+func TestManagedTreeOutputsManagedFilesRecursively(t *testing.T) {
+	root := t.TempDir()
+	writeRunnerFile(t, root, ".context-lint.yaml", `linter:
+  document:
+    entry: AGENTS.md
+    requiredReachable:
+      - docs
+    excludes:
+      - docs/secret.md
+`)
+	writeRunnerFile(t, root, "docs/a.md", "# A\n")
+	writeRunnerFile(t, root, "docs/secret.md", "# Secret\n")
+	writeRunnerFile(t, root, "docs/nested/b.md", "# B\n")
+
+	var out bytes.Buffer
+	code := ManagedTree(Options{Root: root, Stdout: &out}, "docs")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; output: %s", code, out.String())
+	}
+
+	want := "docs\n├── a.md\n└── nested\n    └── b.md\n"
+	if out.String() != want {
+		t.Fatalf("tree output:\n%s\nwant:\n%s", out.String(), want)
+	}
+}
+
 func decodeResult(t *testing.T, data []byte) diagnostic.Result {
 	t.Helper()
 	var result diagnostic.Result

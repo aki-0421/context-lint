@@ -136,6 +136,9 @@ Run `context-lint config-guide` to print a short configuration example for front
 ```text
 context-lint [flags]
 context-lint list <path> [flags]
+context-lint managed check <file> [flags]
+context-lint managed list <directory> [flags]
+context-lint managed tree <path> [flags]
 context-lint config-guide
 ```
 
@@ -153,6 +156,14 @@ Flags:
 
 The `list` command supports `--config`, `--root`, `--strict`, `--format`, `--no-color`, and recursively scans Markdown files under `<path>`.
 
+The `managed` command group supports `--config`, `--root`, `--strict`, `--format`, and `--no-color`. It uses Markdown files expanded from `requiredReachable` after `excludes` has been applied.
+
+`context-lint managed check <file>` prints `true` or `false`. It exits `0` when the file is managed, `1` when it is not managed, and `2` for configuration or usage errors.
+
+`context-lint managed list <directory>` prints managed file paths directly inside the directory, one per line.
+
+`context-lint managed tree <path>` prints managed files under the path recursively in a tree-style view.
+
 The `config-guide` command prints configuration examples for common diagnostics, including excluding file names from missing-front-matter checks.
 
 Exit codes:
@@ -163,3 +174,5 @@ Exit codes:
 | Warnings only | `0` | `1` |
 | Invalid configuration | `2` | `2` |
 | Runtime failure | `2` | `2` |
+
+`managed check` is a boolean command: an unmanaged file exits `1` without emitting a diagnostic.

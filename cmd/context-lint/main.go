@@ -27,6 +27,9 @@ func run(args []string) int {
 	if len(args) > 0 && args[0] == "list" {
 		return runList(args[1:], runner.Options{})
 	}
+	if len(args) > 0 && args[0] == "managed" {
+		return runManaged(args[1:], runner.Options{})
+	}
 
 	var opts runner.Options
 	var showVersion bool
@@ -58,6 +61,8 @@ func run(args []string) int {
 			return runConfigGuide(fs.Args()[1:])
 		case "list":
 			return runList(fs.Args()[1:], opts)
+		case "managed":
+			return runManaged(fs.Args()[1:], opts)
 		}
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", fs.Arg(0))
 		return 2
@@ -127,6 +132,53 @@ func runList(args []string, opts runner.Options) int {
 		return 2
 	}
 	return runner.List(opts, target)
+}
+
+func runManaged(args []string, opts runner.Options) int {
+	if opts.Format == "" {
+		opts.Format = "human"
+	}
+	flagArgs, positionals := splitListArgs(args)
+
+	fs := flag.NewFlagSet("context-lint managed", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	fs.StringVar(&opts.ConfigPath, "config", opts.ConfigPath, "use a specific configuration file")
+	fs.StringVar(&opts.Root, "root", opts.Root, "use a specific project root")
+	fs.BoolVar(&opts.Strict, "strict", opts.Strict, "treat warnings as errors")
+	fs.StringVar(&opts.Format, "format", opts.Format, "output format: human or json")
+	fs.BoolVar(&opts.NoColor, "no-color", opts.NoColor, "disable ANSI color")
+
+	if err := fs.Parse(flagArgs); err != nil {
+		return 2
+	}
+
+	opts.Stdout = os.Stdout
+	opts.Stderr = os.Stderr
+	if len(positionals) == 0 {
+		fmt.Fprintln(os.Stderr, "managed command is required: check, list, or tree")
+		return 2
+	}
+	command := positionals[0]
+	target := ""
+	if len(positionals) > 1 {
+		target = positionals[1]
+	}
+	if len(positionals) > 2 {
+		fmt.Fprintf(os.Stderr, "unexpected argument %q\n", positionals[2])
+		return 2
+	}
+
+	switch command {
+	case "check":
+		return runner.ManagedCheck(opts, target)
+	case "list":
+		return runner.ManagedList(opts, target)
+	case "tree":
+		return runner.ManagedTree(opts, target)
+	default:
+		fmt.Fprintf(os.Stderr, "unknown managed command %q\n", command)
+		return 2
+	}
 }
 
 func splitListArgs(args []string) ([]string, []string) {
