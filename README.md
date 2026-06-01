@@ -23,22 +23,27 @@ This project is early-stage. The core CLI, GitHub Action entry point, tests, CI,
 
 ## Agent-First Setup
 
-This repository distributes [`context-lint-setup`](skills/context-lint-setup/SKILL.md), an installable Agent Skill that helps AI agents install `context-lint`, add a default repository config, optionally add GitHub Actions, and customize settings.
+This repository distributes installable Agent Skills for setting up and using `context-lint`:
 
-Install the skill, then ask your agent to run the setup for the repository you have open:
+- [`context-lint-setup`](skills/context-lint-setup/SKILL.md) helps AI agents install `context-lint`, add a default repository config, optionally add GitHub Actions, and customize settings.
+- [`context-router`](skills/context-router/SKILL.md) helps AI agents maintain managed documentation front matter and `index.md` routes while creating, changing, or reorganizing docs.
+
+Install the skills you need, then ask your agent to use them in the repository you have open:
 
 ```bash
 npx skills add aki-0421/context-lint --list
 npx skills add aki-0421/context-lint --skill context-lint-setup
+npx skills add aki-0421/context-lint --skill context-router
 ```
 
 Example prompt:
 
 ```text
 Use $context-lint-setup to install context-lint and add a default config to this repository.
+Use $context-router while creating or reorganizing managed documentation.
 ```
 
-The skill is designed to inspect the repository first, choose or create the appropriate agent entry file such as `AGENTS.md` or `CLAUDE.md`, install the CLI safely, add a minimal default config, and ask before adding GitHub Actions.
+`context-lint-setup` is designed to inspect the repository first, choose or create the appropriate agent entry file such as `AGENTS.md` or `CLAUDE.md`, install the CLI safely, add a minimal default config, and ask before adding GitHub Actions. `context-router` is designed for ongoing documentation edits after a repository already has managed documentation.
 
 For environments where an Agent Skill cannot be used, see [Manual Setup](docs/manual-setup.md).
 

@@ -16,6 +16,7 @@ Implementation map:
 - `internal/runner` wires configuration, linting, output, and exit codes together.
 - `action.yml` exposes the CLI as a composite GitHub Action.
 - `skills/context-lint-setup` contains the installable Agent Skill for guided installation and repository setup.
+- `skills/context-router` contains the installable Agent Skill for managed documentation routing and front matter maintenance.
 
 Development commands:
 

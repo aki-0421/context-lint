@@ -1,0 +1,4 @@
+interface:
+  display_name: "Context Router"
+  short_description: "Route docs with context-lint checks"
+  default_prompt: "Use $context-router while creating or reorganizing managed documentation."
