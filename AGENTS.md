@@ -16,6 +16,7 @@ Implementation map:
 - `internal/diagnostic` renders human and JSON diagnostics.
 - `internal/runner` wires configuration, linting, output, and exit codes together.
 - `action.yml` exposes the CLI as a composite GitHub Action.
+- `skills/context-lint-setup` contains the installable Agent Skill for guided installation and repository setup.
 
 Development commands:
 

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Context Lint Setup"
+  short_description: "Install and configure context-lint"
+  brand_color: "#2563EB"
+  default_prompt: "Use $context-lint-setup to install context-lint and add a default config to this repository."
