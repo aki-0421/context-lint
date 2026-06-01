@@ -2,8 +2,7 @@ linter:
   document:
     entry: AGENTS.md
     requiredReachable:
-      - README.md
+      - docs/**/*.md
+    requiredReachableMaxFileSize: 8KiB
     excludes:
-      - .git
-      # The specification contains intentionally broken path examples.
-      - docs/spec/context-lint.md
+      - skills

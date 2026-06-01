@@ -5,7 +5,6 @@ This repository contains `context-lint`, a Go CLI that validates AI-readable doc
 Start here:
 
 - [Specification](docs/spec/context-lint.md)
-- [README](README.md)
 
 Implementation map:
 

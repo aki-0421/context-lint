@@ -1,13 +1,3 @@
----
-title: Manual Setup
-description: Manual installation, configuration, GitHub Actions, and CLI reference for context-lint.
-read_when:
-  - An Agent Skill cannot be used and context-lint must be installed or configured manually.
-  - Looking up exact context-lint configuration fields, command flags, or CI setup.
-doc_type: reference
-status: active
----
-
 # Manual Setup
 
 Prefer the [`context-lint-setup`](../skills/context-lint-setup/SKILL.md) Agent Skill when an AI agent can handle setup. Use this page for manual installation, configuration, CI, and CLI reference.
