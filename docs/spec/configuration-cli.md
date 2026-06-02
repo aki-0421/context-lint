@@ -117,7 +117,7 @@ For `--format json`, `managed check` returns:
   "managed": true,
   "root": "/repo",
   "config": ".context-lint.yaml",
-  "path": "docs/guide.md",
+  "path": "docs/spec/configuration-cli.md",
   "diagnostics": []
 }
 ```
@@ -128,9 +128,9 @@ For `--format json`, `managed list` returns:
 {
   "root": "/repo",
   "config": ".context-lint.yaml",
-  "path": "docs",
+  "path": "docs/spec",
   "files": [
-    "docs/guide.md"
+    "docs/spec/configuration-cli.md"
   ],
   "diagnostics": []
 }
@@ -142,15 +142,15 @@ For `--format json`, `managed tree` returns a recursive `tree` node:
 {
   "root": "/repo",
   "config": ".context-lint.yaml",
-  "path": "docs",
+  "path": "docs/spec",
   "tree": {
-    "name": "docs",
-    "path": "docs",
+    "name": "spec",
+    "path": "docs/spec",
     "type": "directory",
     "children": [
       {
-        "name": "guide.md",
-        "path": "docs/guide.md",
+        "name": "configuration-cli.md",
+        "path": "docs/spec/configuration-cli.md",
         "type": "file"
       }
     ]
