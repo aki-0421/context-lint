@@ -1,34 +1,42 @@
 # context-lint
 
-`context-lint` is a CLI and GitHub Action for keeping AI-readable repository documentation reachable from one Markdown entry point.
+[English](README.en.md)
 
-It starts from a configured entry file, such as `AGENTS.md`, follows local Markdown references and Markdown file-path-like text, and reports documents that are missing or required but unreachable. The goal is simple: if an AI agent is expected to understand a repository from its docs, the docs must form a navigable graph.
+`context-lint` は、AI エージェントが参照するリポジトリ文書を「1つの入口からたどれる、小さく信頼できる文書グラフ」として検査するリンターです。
 
-## Why
+`AGENTS.md` や `CLAUDE.md` のようなAIエージェントが常に参照するブートストラップコンテキストからパス参照をたどり、重要な文書が到達可能か、Markdown の参照先が存在するか、AI と人間が維持しやすい大きさに分割されているかを確認します。
 
-AI agents work best when repository context is short, explicit, and linked. A single entry file should act like a table of contents, pointing to deeper documents only when they are relevant.
+## 基本思想
 
-`context-lint` helps maintain that shape by checking:
+リポジトリの文書は一時的なメモではありません。
+適切に設計され、保守され、CI で壊れていないことを確認されるべき作業基盤です。
 
-- the entry Markdown file exists;
-- local Markdown document references point to existing files;
-- Markdown file paths written in prose or code blocks point to existing files;
-- required documentation is reachable from the entry file;
-- required documentation stays small enough to read and split into focused files;
-- CI can enforce the documentation graph when a project is ready.
+また、AI エージェントに渡すコンテキストは、多ければよいわけではありません。
+よいコンテキストは、短く、明示的で、信頼でき、必要な深さまでリンクでたどれます。
 
-## Status
+AIが参照できないドキュメントは、AI との協働において存在していないに等しいものです。
+AI自身が書いたドキュメントであっても、次のセッションや別のエージェントが入口ファイルから再び参照できなければ、リポジトリの知識としては残りません。
 
-This project is early-stage. The core CLI, GitHub Action entry point, tests, CI, and release workflow are in place. Feedback and small, focused contributions are welcome.
+- エージェントには、長大な説明を丸ごと読ませるのではなく、必要な文書へ段階的に案内します。
+- 重要な設計判断、運用ルール、仕様、コマンドが入口ファイルからたどれない状態は、文書の負債です。
+- AI が読む文書にも、人間が読む文書と同じように構造、責任範囲、継続的な検証が必要です。
 
-## Agent-First Setup
+`context-lint` は、この構造が保たれているかを機械的に確認します。
 
-This repository distributes installable Agent Skills for setting up and using `context-lint`:
+## 何を検査するか
 
-- [`context-lint-setup`](skills/context-lint-setup/SKILL.md) helps AI agents install `context-lint`, add a default repository config, optionally add GitHub Actions, and customize settings.
-- [`context-router`](skills/context-router/SKILL.md) helps AI agents maintain managed documentation front matter and `index.md` routes while creating, changing, or reorganizing docs.
+- プロジェクトルートに `AGENTS.md` や `CLAUDE.md` が存在するかを確認する。
+- Markdownの文中やコードブロック内のファイルパスらしい文字列を参照として抽出する。
+- 存在しないローカル Markdown 参照を報告する。
+- `requiredReachable` に指定したMarkdownファイル群が入口から到達可能か確認する。
+- Markdown が大きすぎる場合、分割を促す。
+- 通常は警告として導入し、文書グラフがチームに根づいたら `--strict` で CI を失敗させる。
 
-Install the skills you need, then ask your agent to use them in the repository you have open:
+## セットアップ
+
+### Agent Skill で始める
+
+AI エージェントが Agent Skill を使える環境では、この方法が推奨です。`context-lint` の思想そのものが、エージェントと一緒にリポジトリの文脈を整えることに向いています。
 
 ```bash
 npx skills add aki-0421/context-lint --list
@@ -36,67 +44,57 @@ npx skills add aki-0421/context-lint --skill context-lint-setup
 npx skills add aki-0421/context-lint --skill context-router
 ```
 
-Example prompt:
+セットアップしたいリポジトリを開き、エージェントに次のように依頼します。
 
 ```text
 Use $context-lint-setup to install context-lint and add a default config to this repository.
 Use $context-router while creating or reorganizing managed documentation.
 ```
 
-`context-lint-setup` is designed to inspect the repository first, choose or create the appropriate agent entry file such as `AGENTS.md` or `CLAUDE.md`, install the CLI safely, add a minimal default config, and ask before adding GitHub Actions. `context-router` is designed for ongoing documentation edits after a repository already has managed documentation.
+`context-lint-setup` は CLI の導入、入口ファイルの選択、最小構成の作成、初回 lint を案内します。`context-router` は、管理対象の Markdown を作成・移動・分割するときに front matter と `index.md` の経路を保つためのスキルです。
 
-For environments where an Agent Skill cannot be used, see [Manual Setup](docs/manual-setup.md).
+### 手動で始める
 
-## Development
-
-Requirements:
-
-- Go 1.23 or newer
-
-Common commands:
+Go 1.23 以上を用意して CLI をインストールします。
 
 ```bash
-go test ./...
-go vet ./...
-go run ./cmd/context-lint --strict
+go install github.com/aki-0421/context-lint/cmd/context-lint@latest
 ```
 
-Build locally:
+プロジェクトルートに `.context-lint.yaml` を作成します。
+
+```yaml
+linter:
+  document:
+    entry: AGENTS.md
+    requiredReachable:
+      - docs/**/*.md
+```
+
+`entry` には、AI エージェントが最初に読む短い Markdown ファイルを指定します。`requiredReachable` には、入口から到達可能であるべき文書、ディレクトリ、glob を指定します。まだ必須文書がない場合は `requiredReachable` を省略できます。
+
+実行します。
 
 ```bash
-go build ./cmd/context-lint
+context-lint
 ```
 
-Check the release configuration:
+最初は警告として運用し、入口ファイルと必須文書の関係が安定してから strict mode に切り替えるのがおすすめです。
 
 ```bash
-go run github.com/goreleaser/goreleaser/v2@latest check
+context-lint --strict
+context-lint --format json
 ```
 
-## Contributing
+詳しい手動セットアップと CLI リファレンスは [docs/manual-setup.md](docs/manual-setup.md) を参照してください。GitHub Actions での導入は [docs/github-actions.md](docs/github-actions.md) に分けています。
 
-Contributions are welcome, especially focused fixes, tests, documentation improvements, and small rule improvements.
+## 次に読むもの
 
-Please follow these guidelines:
+- [手動セットアップ](docs/manual-setup.md)
+- [GitHub Actions で使う](docs/github-actions.md)
+- [仕様](docs/spec/context-lint.md)
+- [コントリビューター向けガイド](CONTRIBUTING.md)
 
-- Keep changes small and reviewable.
-- Open an issue first for large behavior changes or new rule categories.
-- Add or update tests for user-visible behavior.
-- Keep documentation in English.
-- Run `go test ./...` before opening a pull request.
-- Do not commit generated release artifacts from `dist`.
-- Be respectful and assume good intent in issues, reviews, and discussions.
-
-By submitting a contribution, you agree that your contribution will be licensed under the MIT License.
-
-## Security
-
-Please do not report security issues in public issues. Use GitHub private vulnerability reporting if it is available for this repository, or contact the maintainer privately through GitHub.
-
-## Specification
-
-See [docs/spec/context-lint.md](docs/spec/context-lint.md).
-
-## License
+## ライセンス
 
 MIT
